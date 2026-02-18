@@ -25,7 +25,15 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { createClient } from "@/lib/supabase/client"
-import { ChevronRight, FolderOpen, Pencil, Users } from "lucide-react"
+import {
+  AlignLeft,
+  ChevronRight,
+  FolderOpen,
+  Hash,
+  Pencil,
+  ToggleLeft,
+  Users
+} from "lucide-react"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -53,6 +61,21 @@ const questionTypeLabels: Record<string, string> = {
   boolean: "Boolean",
   number: "Number",
   textarea: "Textarea"
+}
+
+const questionTypeStyles: Record<string, string> = {
+  boolean:
+    "border-0 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  number:
+    "border-0 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  textarea:
+    "border-0 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+}
+
+const questionTypeIcons: Record<string, ReturnType<typeof AlignLeft>> = {
+  boolean: <ToggleLeft className="h-3.5 w-3.5" />,
+  number: <Hash className="h-3.5 w-3.5" />,
+  textarea: <AlignLeft className="h-3.5 w-3.5" />
 }
 
 export function ChallengeDetail({ name }: { name: string }) {
@@ -166,15 +189,25 @@ export function ChallengeDetail({ name }: { name: string }) {
                 )}
               </div>
               {configuredChallenge.questions.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Judge Questions
                   </p>
-                  <div className="space-y-1">
+                  <div className="divide-y rounded-md border">
                     {configuredChallenge.questions.map((q, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="text-sm">{q.label}</span>
-                        <Badge variant="outline" className="text-xs">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 px-3 py-2.5"
+                      >
+                        <span className="w-4 shrink-0 font-mono text-xs text-muted-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 text-sm">{q.label}</span>
+                        <Badge
+                          variant="outline"
+                          className={`shrink-0 gap-1 text-xs ${questionTypeStyles[q.type] ?? ""}`}
+                        >
+                          {questionTypeIcons[q.type]}
                           {questionTypeLabels[q.type] ?? q.type}
                         </Badge>
                       </div>
