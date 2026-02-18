@@ -1,6 +1,11 @@
 "use client"
 
+import {
+  Challenge,
+  EditChallengeSheet
+} from "@/components/edit-challenge-sheet"
 import { PrizeBadge } from "@/components/prize-badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,9 +25,9 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { createClient } from "@/lib/supabase/client"
-import { ChevronRight, FolderOpen, Users } from "lucide-react"
+import { ChevronRight, FolderOpen, Pencil, Users } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 interface ParticipantInfo {
@@ -44,38 +49,67 @@ interface Submission {
   }[]
 }
 
+const questionTypeLabels: Record<string, string> = {
+  boolean: "Boolean",
+  number: "Number",
+  textarea: "Textarea"
+}
+
 export function ChallengeDetail({ name }: { name: string }) {
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [configuredChallenge, setConfiguredChallenge] =
+    useState<Challenge | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent("breadcrumbLabel", { detail: name }))
-
-    const fetchData = async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
+  const fetchDataRef = useRef(async () => {
+    const supabase = createClient()
+    const [submissionsResult, challengeResult, userResult] = await Promise.all([
+      supabase
         .from("submissions")
         .select(
           "id, number, title, devpost_url, prizes, submission_participants(participant_id, participants(id, first_name, last_name, email))"
         )
         .contains("prizes", [name])
-        .order("number")
+        .order("number"),
+      supabase.from("challenges").select("*").eq("keyword", name).maybeSingle(),
+      supabase.auth.getUser()
+    ])
 
-      if (error) {
-        toast.error("Failed to fetch projects")
-        console.error(error)
-        setLoading(false)
-        return
-      }
-
-      setSubmissions((data as unknown as Submission[]) || [])
-      setLoading(false)
+    if (submissionsResult.error) {
+      toast.error("Failed to fetch projects")
+      console.error(submissionsResult.error)
+    } else {
+      setSubmissions((submissionsResult.data as unknown as Submission[]) || [])
     }
 
-    fetchData()
+    if (!challengeResult.error) {
+      setConfiguredChallenge(
+        (challengeResult.data as unknown as Challenge) || null
+      )
+    }
+
+    if (!userResult.error && userResult.data.user) {
+      const profileResult = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userResult.data.user.id)
+        .single()
+      if (!profileResult.error) {
+        setIsAdmin(profileResult.data?.role === "admin")
+      }
+    }
+
+    setLoading(false)
+  })
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("breadcrumbLabel", { detail: name }))
+    fetchDataRef.current()
   }, [name])
 
   const uniqueParticipantCount = new Set(
@@ -111,6 +145,43 @@ export function ChallengeDetail({ name }: { name: string }) {
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-4 w-24" />
               </div>
+            </div>
+          ) : configuredChallenge ? (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <p className="font-medium">{configuredChallenge.title}</p>
+                  <PrizeBadge prize={configuredChallenge.keyword} />
+                </div>
+                {isAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground"
+                    onClick={() => setEditSheetOpen(true)}
+                    title="Edit challenge"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+              {configuredChallenge.questions.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Judge Questions
+                  </p>
+                  <div className="space-y-1">
+                    {configuredChallenge.questions.map((q, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-sm">{q.label}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {questionTypeLabels[q.type] ?? q.type}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -292,6 +363,15 @@ export function ChallengeDetail({ name }: { name: string }) {
           </div>
         )}
       </div>
+
+      {configuredChallenge && (
+        <EditChallengeSheet
+          open={editSheetOpen}
+          onOpenChange={setEditSheetOpen}
+          challenge={configuredChallenge}
+          onUpdated={() => fetchDataRef.current()}
+        />
+      )}
     </div>
   )
 }
