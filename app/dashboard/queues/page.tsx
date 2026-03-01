@@ -454,7 +454,7 @@ function normalizeQueueReviews(raw: unknown): QueueReview[] {
   })
 }
 
-function getDiscordHandleFromParticipant(
+function _getDiscordHandleFromParticipant(
   participant: SubmissionParticipant["participants"]
 ): string | null {
   const value =
@@ -3764,56 +3764,6 @@ export default function QueuesPage() {
   const canPresentNext = Boolean(
     roomIsReady && !actionBusy && !currentEntry && followUpEntry
   )
-
-  const _knownDiscordHandles = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          allSubmissions
-            .flatMap((submission) => submission.submission_participants)
-            .map((participant) =>
-              getDiscordHandleFromParticipant(participant.participants)
-            )
-            .filter((value): value is string => Boolean(value))
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [allSubmissions]
-  )
-
-  const _addDiscordTarget = (rawHandle: string) => {
-    const handle = rawHandle.trim()
-    if (!handle) return
-
-    setDiscordTestTargets((previous) =>
-      previous.includes(handle) ? previous : [...previous, handle]
-    )
-  }
-
-  const _sendDiscordTestMessage = async () => {
-    if (discordTestTargets.length === 0) {
-      toast.error("Add at least one Discord user")
-      return
-    }
-
-    setDiscordSending(true)
-    try {
-      const result = await sendDiscordViaApi({
-        message: discordTestMessage.trim() || "prueba",
-        participants: discordTestTargets
-      })
-
-      if (result.sent) {
-        toast.success("Discord test message sent")
-      } else {
-        toast.info("No valid Discord users were resolved")
-      }
-    } catch (error) {
-      console.error(error)
-      toast.error("Failed to send Discord test message")
-    } finally {
-      setDiscordSending(false)
-    }
-  }
 
   if (loading) {
     return (
